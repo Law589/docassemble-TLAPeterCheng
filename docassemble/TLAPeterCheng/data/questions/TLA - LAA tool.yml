@@ -1,0 +1,8 @@
+# this is a tool for the legal aid assistance
+mandatory: true
+question: |
+  Hello, ${ name }.
+---
+question: What is your name?
+fields:
+  - Name: name
