@@ -1,8 +1,55 @@
-# this is a tool for the legal aid assistance
-mandatory: true
-question: |
-  Hello, ${ name }.
+objects:
+  - user: Individual # user is the object and the type is Individual
+  - cohabitants: DAList.using(object_type=Individual) # this says the list contains objects of which the type of Individual
 ---
+mandatory: true # this says this block is the required slide to show, and docassemble will want to know what prior blocks it needs to display to show this mandatory field
+question: | # use the pipe symbol if you want to do multiline
+  Hello ${ user }.
+subquestion:  |
+
+  Do you eat sweet snacks? ${ user.sweet_snacks }. 
+  
+  What is your favourite type of snack? ${ user.favourite_type_snack }. 
+  
+  Do you eat Oreos on a daily basis? ${ user.daily_oreos }
+  
+  Do you eat Kitkat on a daily basis? ${ user.daily_kitkat }
+  
+  You live with: ${ cohabitants }. 
+  
+  Your signature: ${ user.signature }
+---
+generic object: Individual
 question: What is your name?
 fields:
-  - Name: name
+  - First Name: x.name.first
+  - Last Name: x.name.last
+---
+question: |
+  Do you eat sweet snacks?
+yesno: user.sweet_snacks
+---
+question: |
+  What is your favourite type of snack?
+field: user.favourite_type_snack
+choices:
+  - Sweets
+  - Savoury 
+  - Healthy 
+---
+question: |
+  Select the food choices you would like to eat on a daily basis.
+fields:
+  - Oreos: user.daily_oreos
+    datatype: yesnowide
+  - Kitkat: user.daily_kitkat
+    datatype: yesnowide
+---
+question: Do you live with anyone?
+yesno: cohabitants.there_are_any
+---
+question: Do you live with anyone else?
+yesno: cohabitants.there_is_another
+---
+question: Please sign
+signature: user.signature 
