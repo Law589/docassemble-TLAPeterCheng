@@ -1,6 +1,6 @@
 objects:
-  - user: Individual # user is the object and the type is Individual
-  - cohabitants: DAList.using(object_type=Individual) # this says the list contains objects of which the type of Individual
+  - user: Individual 
+  - cohabitants: DAList.using(object_type=Individual) 
 ---
 mandatory: true
 code:  |
