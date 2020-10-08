@@ -2,22 +2,18 @@ objects:
   - user: Individual # user is the object and the type is Individual
   - cohabitants: DAList.using(object_type=Individual) # this says the list contains objects of which the type of Individual
 ---
-mandatory: false # this says this block is the required slide to show, and docassemble will want to know what prior blocks it needs to display to show this mandatory field
-question: | # use the pipe symbol if you want to do multiline
-  Hello ${ user }.
-subquestion:  |
+mandatory: true
+code:  |
 
-  Do you eat sweet snacks? ${ user.sweet_snacks }. 
+  if not appeal_legal_aid: 
+    live_in_alberta
+    family_law
+    criminal_law
+    legal_in_alberta
   
-  What is your favourite type of snack? ${ user.favourite_type_snack }. 
-  
-  Do you eat Oreos on a daily basis? ${ user.daily_oreos }
-  
-  Do you eat Kitkat on a daily basis? ${ user.daily_kitkat }
-  
-  You live with: ${ cohabitants }. 
-  
-  Your signature: ${ user.signature }
+  if not afford_lawyer and have_lawyer:
+    if_lawyer_still_here
+
 ---
 mandatory: true
 question: Here is your document.
@@ -28,69 +24,122 @@ attachment:
     content:  |
     
       Hello ${ user }
-    
+      
+      Below are information you have entered for this self assessment:
+      
       % if len(cohabitants) > 0: 
-    
-      You live with the following people: ${ cohabitants }. 
-    
+      * You live with the following people: ${ cohabitants }. 
       % else: 
-    
-      You do not live with anyone. 
-    
+      * You do not live with anyone. 
       % endif
-    
-      % if user.legalaid_qualify:
-    
-      You indicated that you qualify for legal aid. 
-    
+
+      % if have_lawyer:
+      * You indicated that you have a lawyer.
       % else:
-    
-      You indicated that you do not qualify for legal aid. 
-    
+      * You indicated that you do not have a lawyer. 
       % endif
+      
+      % if afford_lawyer:
+      * You indicated that you have sufficient income to afford a lawyer. 
+      % else:
+      * You indicated that you do not have sufficient income to afford a lawyer. 
+      % endif
+      
+      % if not afford_lawyer and have_lawyer:
+      * You indicated that you have a lawyer acting on your behalf for this matter as ${ if_lawyer_still_here }.
+      % else:
+      % endif
+      
+      % if appeal_legal_aid:
+      * You indicated that you had received Legal Aid Alberta's assistance with this legal matter. 
+      % else:
+      * You indicated that your matter is a family law matter as ${ family_law }.
+      * You indicated that your matter is a criminal law matter as ${ criminal_law }.
+      * You indicated that you live in Alberta = ${ live_in_alberta }.
+      * You indicated that your legal matter is in Alberta as ${ legal_in_alberta }.
+      % endif 
+      
+      % if eligible_legal_aid:
+      Based on the information you entered above, you qualify for Legal Aid assistance. Please contact us for next steps at Phone/email. 
+      % else: 
+      Based on the information you entered above, you do no qualify for Legal Aid assistance. If you wish to seek clarification or additional assistance please contact us at Phone/email. 
+      % endif 
     
       Date of inquiry ${ format_date(date_of_inquiry, format='EEEE, MMMM d, yyyy') }, which can also be written as ${ format_date(date_of_inquiry, format="yyyy-MM-dd") }. 
+      
+      
+      ${ user.signature }
+      Please sign
 ---
-generic object: Individual
-question: What is your name?
+# below is general user information and date
+---
+generic object:  Individual
+question:  What is your name?
 fields:
   - First Name: x.name.first
   - Last Name: x.name.last
 ---
-question:  |
-  What is the date of inquiry (today's date)? 
+question:  Do you live with anyone?
+yesno:  cohabitants.there_are_any
+---
+question:  Do you live with anyone else?
+yesno:  cohabitants.there_is_another
+---
+question:  What is the date of inquiry (today's date)? 
 fields: 
   - Date of inquiry: date_of_inquiry
     datatype: date 
 ---
-question: Do you qualify for legal aid?
-yesno: user.legalaid_qualify
+question:  Please sign
+signature:  user.signature 
+# below are qualification questions
 ---
-question: |
-  Do you eat sweet snacks?
-yesno: user.sweet_snacks
+question:  Do you have a lawyer?
+yesno:  have_lawyer
 ---
-question: |
-  What is your favourite type of snack?
-field: user.favourite_type_snack
-choices:
-  - Sweets
-  - Savoury 
-  - Healthy 
+question:  Do you have enough income to seek assistance from a lawyer?
+yesno:  afford_lawyer
 ---
-question: |
-  Select the food choices you would like to eat on a daily basis.
-fields:
-  - Oreos: user.daily_oreos
-    datatype: yesnowide
-  - Kitkat: user.daily_kitkat
-    datatype: yesnowide
+question: If you have a lawyer working on your file or have approached a lawyer seeking assistance for your file, is that lawyer currently acting on your behalf for this matter?
+yesno: if_lawyer_still_here
 ---
-question: Do you live with anyone?
-yesno: cohabitants.there_are_any
+question: Is your legal matter located in Alberta?
+yesno: legal_in_alberta
 ---
-question: Do you live with anyone else?
-yesno: cohabitants.there_is_another
+question: Is your legal matter a family law matter?
+yesno: family_law
 ---
-question: Please sign
-signature: user.signature 
+question: Is your legal matter a criminal law matter?
+yesno: criminal_law 
+---
+question: Is your matter an appeal of a matter that you received assistance from Legal Aid Alberta?
+yesno: appeal_legal_aid
+---
+question: Do you live in Alberta? 
+yesno: live_in_alberta
+---
+# below are codes for rules and determining eligibility 
+---
+code:  |
+  if have_lawyer or afford_lawyer:
+    satisfy_unrepresented = False
+  else:
+    satisfy_unrepresented = True
+---
+code:  |
+  if live_in_alberta:
+    satisfy_residency = True
+  else:
+    satisfy_residency = False
+---
+code:  |
+  if ((family_law or criminal_law) and legal_in_alberta) or appeal_legal_aid:
+    matter_within_assistance_range = True
+  else:
+    matter_within_assistance_range = False
+---
+code:  |
+  if satisfy_unrepresented and satisfy_residency and matter_within_assistance_range:
+    eligible_legal_aid = True
+  else:
+    eligible_legal_aid = False
