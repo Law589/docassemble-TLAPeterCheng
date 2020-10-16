@@ -141,6 +141,7 @@ yesno:  cohabitants.there_are_any
 question:  Do you live with anyone else?
 yesno:  cohabitants.there_is_another
 ---
+reconsider: True
 code:  |
   family_size = len(cohabitants) + 1
 ---
@@ -179,30 +180,35 @@ yesno: live_in_alberta
 ---
 # below are codes for rules and determining eligibility 
 ---
+reconsider: True
 code:  |
   if have_lawyer or afford_lawyer:
     satisfy_unrepresented = False
   else:
     satisfy_unrepresented = True
 ---
+reconsider: True
 code:  |
   if live_in_alberta:
     satisfy_residency = True
   else:
     satisfy_residency = False
 ---
+reconsider: True
 code:  |
   if ((family_law or criminal_law) and legal_in_alberta) or appeal_legal_aid:
     matter_within_assistance_range = True
   else:
     matter_within_assistance_range = False
 ---
+reconsider: True
 code:  |
-  if (satisfy_unrepresented and satisfy_residency and matter_within_assistance_range and (financially_eligible or financially_ineligible)) or (satisfy_unrepresented and appeal_legal_aid and (financially_eligible or financially_ineligible)):
+  if (satisfy_unrepresented and appeal_legal_aid and (financially_eligible or marginally_financially_eligible))or (satisfy_unrepresented and satisfy_residency and matter_within_assistance_range and (financially_eligible or marginally_financially_eligible)):
     eligible_legal_aid = True
   else:
     eligible_legal_aid = False
 ---
+reconsider: True
 code:  |
   total_income_last30 = 0
   for j in cohabitants:
@@ -210,11 +216,8 @@ code:  |
       total_income_last30 = total_income_last30 + j.income.value_last30 + user.income.value_last30
     else:
       total_income_last30 = total_income_last30 + user.income.value_last30
-    endif
-  endfor
-  
-  endif
 ---
+reconsider: True
 code:  |
   total_income_lastyear = 0
   for j in cohabitants:
@@ -222,73 +225,45 @@ code:  |
       total_income_lastyear = total_income_lastyear + j.income.value_lastyear + user.income.value_lastyear
     else:
       total_income_lastyear = total_income_lastyear + user.income.value_lastyear
-    endif
-  endfor
-  
-  endif
 ---
+reconsider: True
 code:  |
   financially_eligible = False
   marginally_financially_eligible = False
   financially_ineligible = False
-  if family_size == 1 and total_income_last30 <= 1668 and total_income_lastyear <= 20021:
+  if family_size == 1 and (total_income_last30 <= 1668 and total_income_lastyear <= 20021):
+    financially_eligible =  True
+  elif family_size == 1 and (total_income_last30 <= 1834.8 and total_income_lastyear <= 22023.1):
+    marginally_financially_eligible =  True
+  elif family_size == 1 and (total_income_last30 > 1834.8 and total_income_lastyear > 22023.1):
+    financially_ineligible =  True
+  elif family_size == 2 and (total_income_last30 <= 2066 and total_income_lastyear <= 24788):
     financially_eligible = True
-  elif family_size == 1 and total_income_last30 <= 1834.8 and total_income_lastyear <= 22023.1:
+  elif family_size == 2 and (total_income_last30 <= 2272.6 and total_income_lastyear <= 27266.8):
     marginally_financially_eligible = True
-  else:
+  elif family_size == 2 and (total_income_last30 > 2272.6 and total_income_lastyear > 27266.8):
     financially_ineligible = True
----
-code:  |
-  financially_eligible = False
-  marginally_financially_eligible = False
-  financially_ineligible = False
-  if family_size == 2 and total_income_last30 <= 2066 and total_income_lastyear <= 24788:
+  elif family_size == 3 and (total_income_last30 <= 2940 and total_income_lastyear <= 35275):
     financially_eligible = True
-  elif family_size == 2 and total_income_last30 <= 2272.6 and total_income_lastyear <= 27266.8:
+  elif family_size == 3 and (total_income_last30 <= 3234 and total_income_lastyear <= 38802.5):
     marginally_financially_eligible = True
-  else:
+  elif family_size == 3 and (total_income_last30 > 3234 and total_income_lastyear > 38802.5):
     financially_ineligible = True
----
-code:  |
-  financially_eligible = False
-  marginally_financially_eligible = False
-  financially_ineligible = False
-  if family_size == 3 and total_income_last30 <= 2940 and total_income_lastyear <= 35275:
+  elif family_size == 4 and (total_income_last30 <= 3178 and total_income_lastyear <= 38134):
     financially_eligible = True
-  elif family_size == 3 and total_income_last30 <= 3234 and total_income_lastyear <= 38802.5:
+  elif family_size == 4 and (total_income_last30 <= 3495.8 and total_income_lastyear <= 41947.4):
     marginally_financially_eligible = True
-  else:
+  elif family_size == 4 and (total_income_last30 > 3495.8 and total_income_lastyear > 41947.4):
     financially_ineligible = True
----
-code:  |
-  financially_eligible = False
-  marginally_financially_eligible = False
-  financially_ineligible = False
-  if family_size == 4 and total_income_last30 <= 3178 and total_income_lastyear <= 38134:
+  elif family_size == 5 and (total_income_last30 <= 3416 and total_income_lastyear <= 40995):
     financially_eligible = True
-  elif family_size == 4 and total_income_last30 <= 3495.8 and total_income_lastyear <= 41947.4:
+  elif family_size == 5 and (total_income_last30 <= 3757.6 and total_income_lastyear <= 45094.5):
     marginally_financially_eligible = True
-  else:
+  elif family_size == 5 and (total_income_last30 > 3757.6 and total_income_lastyear > 45094.5):
     financially_ineligible = True
----
-code:  |
-  financially_eligible = False
-  marginally_financially_eligible = False
-  financially_ineligible = False
-  if family_size == 5 and total_income_last30 <= 3416 and total_income_lastyear <= 40995:
+  elif family_size >= 6 and (total_income_last30 <= 3655 and total_income_lastyear <= 43855):
     financially_eligible = True
-  elif family_size == 5 and total_income_last30 <= 3757.6 and total_income_lastyear <= 45094.5:
+  elif family_size >= 6 and (total_income_last30 <= 4020.5 and total_income_lastyear <= 48240.5):
     marginally_financially_eligible = True
-  else:
-    financially_ineligible = True
----
-code:  |
-  financially_eligible = False
-  marginally_financially_eligible = False
-  financially_ineligible = False
-  if family_size >= 6 and total_income_last30 <= 3655 and total_income_lastyear <= 43855:
-    financially_eligible = True
-  elif family_size >= 6 and total_income_last30 <= 4020.5 and total_income_lastyear <= 48240.5:
-    marginally_financially_eligible = True
-  else:
+  elif family_size >= 6 and (total_income_last30 > 4020.5 and total_income_lastyear > 48240.5):
     financially_ineligible = True
