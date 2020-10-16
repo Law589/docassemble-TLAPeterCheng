@@ -1,19 +1,18 @@
 objects:
-  - user: Individual 
-  - cohabitants: DAList.using(object_type=Individual) 
+  - user: Individual
+  - user.assets: Value
+  - user.income: Value 
+  - cohabitants: DAList.using(object_type=Individual, complete_attribute="complete") 
+  - cohabitants[i].assets: Value
+  - cohabitants[i].income: Value
 ---
-mandatory: true
+initial: True
 code:  |
-
-  if not appeal_legal_aid: 
-    live_in_alberta
-    family_law
-    criminal_law
-    legal_in_alberta
-  
-  if not afford_lawyer and have_lawyer:
-    if_lawyer_still_here
-
+  set_info(user=user)
+---
+code:  |
+  cohabitants[i].assets.value
+  cohabitants[i].complete = True
 ---
 mandatory: true
 question: Here is your document.
@@ -27,11 +26,39 @@ attachment:
       
       Below are information you have entered for this self assessment:
       
+            Financial Information:
+      
+      * You indicated that your income for the last 30 days was ${ user.income.value_last30 } and for the last year was ${ user.income.value_lastyear }.
+      
+      % if len(cohabitants) > 0:
+      * Below are financial information you entered for your family members.
+      % for j in cohabitants: 
+        % if j.income.exists:
+        ${ j } made ${ j.income.value_last30 } in the last 30 days and ${ j.income.value_lastyear } in the last year. 
+        % endif
+      % endfor
+      % else:
+      You indicated that you do not have any family members.
+      % endif
+      
+      Family Information:
+      
       % if len(cohabitants) > 0: 
       * You live with the following people: ${ cohabitants }. 
+      * For the purpose of calculating financial eligibility, your family size will be deemed to be ${ family_size }.
       % else: 
-      * You do not live with anyone. 
+      * You do not live with anyone. For the purpose of calculating financial eligibility, your family size will be deemed as one (1). 
       % endif
+      
+      % if financially_eligible:
+      * Based on the financial information you have entered, you are financially eligible for Alberta Legal Aid. 
+      % elif marginally_financially_eligible:
+      * Based on the financial information you have entered, you are marginally financially eligible for Alberta Legal Aid. 
+      % elif financially_ineligible:
+      * Based on the financial information you have entered, you are financially ineligible for Alberta Legal Aid. 
+      % endif
+      
+      Legal Information:
 
       % if have_lawyer:
       * You indicated that you have a lawyer.
@@ -46,7 +73,7 @@ attachment:
       % endif
       
       % if not afford_lawyer and have_lawyer:
-      * You indicated that you have a lawyer acting on your behalf for this matter as ${ if_lawyer_still_here }.
+      You indicated that you have an lawyer acting on your behalf for this matter as ${ if_lawyer_still_here }
       % else:
       % endif
       
@@ -71,19 +98,51 @@ attachment:
       ${ user.signature }
       Please sign
 ---
-# below is general user information and date
+# below is general user and cohab information and date
 ---
 generic object:  Individual
-question:  What is your name?
+question:  |
+  What is ${ x.object_possessive('name') }?
 fields:
   - First Name: x.name.first
   - Last Name: x.name.last
+---
+question:  |
+  Please enter the following financial information regarding ${ cohabitants[i] }.
+fields:
+  - Amount of asset owned by ${ cohabitants[i] }?: cohabitants[i].assets.value
+    datatype: currency
+  - Do they have income?: cohabitants[i].income.exists
+    datatype: yesnowide
+  - What was their income for the last 30 days?: cohabitants[i].income.value_last30
+    datatype: currency
+    show if: cohabitants[i].income.exists
+  - What was their income for the last year?: cohabitants[i].income.value_lastyear
+    datatype: currency
+    show if: cohabitants[i].income.exists
+---
+question:  |
+  Please enter the following financial information about yourself.
+fields:
+  - Amount of asset owned by you?: user.assets.value
+    datatype: currency
+  - Do you have any income?: user.income.exists
+    datatype: yesnowide
+  - How much did you make in the last 30 days?: user.income.value_last30
+    datatype: currency
+    show if: user.income.exists
+  - How much did you make in the last year?: user.income.value_lastyear
+    datatype: currency
+    show if: user.income.exists
 ---
 question:  Do you live with anyone?
 yesno:  cohabitants.there_are_any
 ---
 question:  Do you live with anyone else?
 yesno:  cohabitants.there_is_another
+---
+code:  |
+  family_size = len(cohabitants) + 1
 ---
 question:  What is the date of inquiry (today's date)? 
 fields: 
@@ -139,7 +198,97 @@ code:  |
     matter_within_assistance_range = False
 ---
 code:  |
-  if satisfy_unrepresented and satisfy_residency and matter_within_assistance_range:
+  if (satisfy_unrepresented and satisfy_residency and matter_within_assistance_range and (financially_eligible or financially_ineligible)) or (satisfy_unrepresented and appeal_legal_aid and (financially_eligible or financially_ineligible)):
     eligible_legal_aid = True
   else:
     eligible_legal_aid = False
+---
+code:  |
+  total_income_last30 = 0
+  for j in cohabitants:
+    if j.income.exists:
+      total_income_last30 = total_income_last30 + j.income.value_last30 + user.income.value_last30
+    else:
+      total_income_last30 = total_income_last30 + user.income.value_last30
+    endif
+  endfor
+  
+  endif
+---
+code:  |
+  total_income_lastyear = 0
+  for j in cohabitants:
+    if j.income.exists:
+      total_income_lastyear = total_income_lastyear + j.income.value_lastyear + user.income.value_lastyear
+    else:
+      total_income_lastyear = total_income_lastyear + user.income.value_lastyear
+    endif
+  endfor
+  
+  endif
+---
+code:  |
+  financially_eligible = False
+  marginally_financially_eligible = False
+  financially_ineligible = False
+  if family_size == 1 and total_income_last30 <= 1668 and total_income_lastyear <= 20021:
+    financially_eligible = True
+  elif family_size == 1 and total_income_last30 <= 1834.8 and total_income_lastyear <= 22023.1:
+    marginally_financially_eligible = True
+  else:
+    financially_ineligible = True
+---
+code:  |
+  financially_eligible = False
+  marginally_financially_eligible = False
+  financially_ineligible = False
+  if family_size == 2 and total_income_last30 <= 2066 and total_income_lastyear <= 24788:
+    financially_eligible = True
+  elif family_size == 2 and total_income_last30 <= 2272.6 and total_income_lastyear <= 27266.8:
+    marginally_financially_eligible = True
+  else:
+    financially_ineligible = True
+---
+code:  |
+  financially_eligible = False
+  marginally_financially_eligible = False
+  financially_ineligible = False
+  if family_size == 3 and total_income_last30 <= 2940 and total_income_lastyear <= 35275:
+    financially_eligible = True
+  elif family_size == 3 and total_income_last30 <= 3234 and total_income_lastyear <= 38802.5:
+    marginally_financially_eligible = True
+  else:
+    financially_ineligible = True
+---
+code:  |
+  financially_eligible = False
+  marginally_financially_eligible = False
+  financially_ineligible = False
+  if family_size == 4 and total_income_last30 <= 3178 and total_income_lastyear <= 38134:
+    financially_eligible = True
+  elif family_size == 4 and total_income_last30 <= 3495.8 and total_income_lastyear <= 41947.4:
+    marginally_financially_eligible = True
+  else:
+    financially_ineligible = True
+---
+code:  |
+  financially_eligible = False
+  marginally_financially_eligible = False
+  financially_ineligible = False
+  if family_size == 5 and total_income_last30 <= 3416 and total_income_lastyear <= 40995:
+    financially_eligible = True
+  elif family_size == 5 and total_income_last30 <= 3757.6 and total_income_lastyear <= 45094.5:
+    marginally_financially_eligible = True
+  else:
+    financially_ineligible = True
+---
+code:  |
+  financially_eligible = False
+  marginally_financially_eligible = False
+  financially_ineligible = False
+  if family_size >= 6 and total_income_last30 <= 3655 and total_income_lastyear <= 43855:
+    financially_eligible = True
+  elif family_size >= 6 and total_income_last30 <= 4020.5 and total_income_lastyear <= 48240.5:
+    marginally_financially_eligible = True
+  else:
+    financially_ineligible = True
