@@ -1,7 +1,7 @@
 default role: client
 code:  |
   multi_user = True
-  reviewer_email = "jmorris@ualberta.ca"
+  reviewer_email = "rcheng1@ualberta.ca"
   role = 'client'
   if user_logged_in() and user_info().email == reviewer_email:
     role = 'reviewer'
@@ -44,6 +44,11 @@ code:  |
   request_notification_sent
   reviewer_response
   response_notification_sent
+  
+  if reviewer_response:
+    final_screen
+  else:
+    denied_screen
 ---
 role: 
   - client
@@ -300,7 +305,7 @@ code:  |
 # Multi user code blocks
 ---
 code:  |
-  request_notification_sent = send_email(to=reviewer_email,template=request_notification, attachments=[legal_aid_inquiry_doc])
+  request_notification_sent = send_email(to=reviewer_email,template=request_notification)
 ---
 code:  |
   response_notification_sent = send_email(to=email_address,template=response_notification)
@@ -340,3 +345,86 @@ question: response # should only be viewed by reviewer
 subquestion:  |
   the client said ${ request }. DO you approve?.
 yesno: reviewer_response
+attachment code:  |
+  [legal_aid_inquiry_doc_temp]
+---
+role: reviewer
+question: Here is the advice memo for review. 
+attachment: 
+  - name: Legal Aid Document
+    filename: legal_aid_inquiry_doc_temp
+    variable name: legal_aid_inquiry_doc_temp
+    content:  |
+    
+      Hello ${ user }
+      
+      Below are information you have entered for this self assessment:
+      
+            Financial Information:
+      
+      * You indicated that your income for the last 30 days was ${ user.income.value_last30 } and for the last year was ${ user.income.value_lastyear }.
+      
+      % if len(cohabitants) > 0:
+      * Below are financial information you entered for your family members.
+      % for j in cohabitants: 
+        % if j.income.exists:
+        ${ j } made ${ j.income.value_last30 } in the last 30 days and ${ j.income.value_lastyear } in the last year. 
+        % endif
+      % endfor
+      % else:
+      You indicated that you do not have any family members.
+      % endif
+      
+      Family Information:
+      
+      % if len(cohabitants) > 0: 
+      * You live with the following people: ${ cohabitants }. 
+      * For the purpose of calculating financial eligibility, your family size will be deemed to be ${ family_size }.
+      % else: 
+      * You do not live with anyone. For the purpose of calculating financial eligibility, your family size will be deemed as one (1). 
+      % endif
+      
+      % if financially_eligible:
+      * Based on the financial information you have entered, you are financially eligible for Alberta Legal Aid. 
+      % elif marginally_financially_eligible:
+      * Based on the financial information you have entered, you are marginally financially eligible for Alberta Legal Aid. 
+      % elif financially_ineligible:
+      * Based on the financial information you have entered, you are financially ineligible for Alberta Legal Aid. 
+      % endif
+      
+      Legal Information:
+
+      % if afford_lawyer:
+      * You indicated that you have sufficient income to afford a lawyer. 
+      % else:
+        % if have_lawyer:
+          You indicated that you have a lawyer. You also indicated that the lawyer is still acting on your behalf as ${ if_lawyer_still_here }.
+        % else:
+          You indicated you do not have a lawyer. 
+        % endif
+      % endif
+
+      % if appeal_legal_aid:
+      * You indicated that you had received Legal Aid Alberta's assistance with this legal matter. 
+      % else:
+      * You indicated that your matter is a family law matter as ${ family_law }.
+      * You indicated that your matter is a criminal law matter as ${ criminal_law }.
+      * You indicated that you live in Alberta = ${ live_in_alberta }.
+      * You indicated that your legal matter is in Alberta as ${ legal_in_alberta }.
+      % endif 
+      
+      % if eligible_legal_aid:
+      Based on the information you entered above, you qualify for Legal Aid assistance. Please contact us for next steps at Phone/email. 
+      % else: 
+      Based on the information you entered above, you do no qualify for Legal Aid assistance. If you wish to seek clarification or additional assistance please contact us at Phone/email. 
+      % endif 
+    
+      Date of inquiry ${ format_date(date_of_inquiry, format='EEEE, MMMM d, yyyy') }, which can also be written as ${ format_date(date_of_inquiry, format="yyyy-MM-dd") }. 
+      
+      
+      ${ user.signature }
+      Please sign
+---
+event:  denied_screen
+question:  |
+  Your request for the advice memo has been denied. 
