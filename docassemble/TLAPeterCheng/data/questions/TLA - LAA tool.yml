@@ -1,3 +1,11 @@
+default role: client
+code:  |
+  multi_user = True
+  reviewer_email = "jmorris@ualberta.ca"
+  role = 'client'
+  if user_logged_in() and user_info().email == reviewer_email:
+    role = 'reviewer'
+---
 objects:
   - user: Individual
   - user.assets: Value
@@ -6,20 +14,46 @@ objects:
   - cohabitants[i].assets: Value
   - cohabitants[i].income: Value
 ---
-initial: True
-code:  |
-  set_info(user=user)
----
 code:  |
   cohabitants[i].assets.value
   cohabitants[i].complete = True
 ---
 mandatory: true
-question: Here is your document.
-subquestion: Please print it or email it to yourself. 
+code:  |
+
+  user.name.first
+  user.name.last
+  user.assets.value
+  if len(cohabitants) < 0:
+    cohabitants
+  
+  if not afford_lawyer:
+    if have_lawyer:
+      if_lawyer_still_here
+  
+  if not appeal_legal_aid:
+    family_law
+    criminal_law
+    live_in_alberta
+    legal_in_alberta
+    
+  date_of_inquiry
+  user.signature
+  
+  request
+  request_notification_sent
+  reviewer_response
+  response_notification_sent
+---
+role: 
+  - client
+  - reviewer
+event: final_screen
+question: Here is the advice memo. Please print it or email it to yourself. 
 attachment: 
   - name: Legal Aid Document
     filename: legal_aid_inquiry_doc
+    variable name: legal_aid_inquiry_doc
     content:  |
     
       Hello ${ user }
@@ -60,23 +94,16 @@ attachment:
       
       Legal Information:
 
-      % if have_lawyer:
-      * You indicated that you have a lawyer.
-      % else:
-      * You indicated that you do not have a lawyer. 
-      % endif
-      
       % if afford_lawyer:
       * You indicated that you have sufficient income to afford a lawyer. 
       % else:
-      * You indicated that you do not have sufficient income to afford a lawyer. 
+        % if have_lawyer:
+          You indicated that you have a lawyer. You also indicated that the lawyer is still acting on your behalf as ${ if_lawyer_still_here }.
+        % else:
+          You indicated you do not have a lawyer. 
+        % endif
       % endif
-      
-      % if not afford_lawyer and have_lawyer:
-      You indicated that you have an lawyer acting on your behalf for this matter as ${ if_lawyer_still_here }
-      % else:
-      % endif
-      
+
       % if appeal_legal_aid:
       * You indicated that you had received Legal Aid Alberta's assistance with this legal matter. 
       % else:
@@ -130,9 +157,11 @@ fields:
     datatype: yesnowide
   - How much did you make in the last 30 days?: user.income.value_last30
     datatype: currency
+    min: 0
     show if: user.income.exists
   - How much did you make in the last year?: user.income.value_lastyear
     datatype: currency
+    min: 0
     show if: user.income.exists
 ---
 question:  Do you live with anyone?
@@ -182,7 +211,7 @@ yesno: live_in_alberta
 ---
 reconsider: True
 code:  |
-  if have_lawyer or afford_lawyer:
+  if afford_lawyer or if_lawyer_still_here:
     satisfy_unrepresented = False
   else:
     satisfy_unrepresented = True
@@ -203,7 +232,7 @@ code:  |
 ---
 reconsider: True
 code:  |
-  if (satisfy_unrepresented and appeal_legal_aid and (financially_eligible or marginally_financially_eligible))or (satisfy_unrepresented and satisfy_residency and matter_within_assistance_range and (financially_eligible or marginally_financially_eligible)):
+  if (satisfy_unrepresented and appeal_legal_aid and (financially_eligible or marginally_financially_eligible)) or (satisfy_unrepresented and satisfy_residency and matter_within_assistance_range and (financially_eligible or marginally_financially_eligible)):
     eligible_legal_aid = True
   else:
     eligible_legal_aid = False
@@ -267,3 +296,47 @@ code:  |
     marginally_financially_eligible = True
   elif family_size >= 6 and (total_income_last30 > 4020.5 and total_income_lastyear > 48240.5):
     financially_ineligible = True
+---
+# Multi user code blocks
+---
+code:  |
+  request_notification_sent = send_email(to=reviewer_email,template=request_notification, attachments=[legal_aid_inquiry_doc])
+---
+code:  |
+  response_notification_sent = send_email(to=email_address,template=response_notification)
+---
+template: request_notification
+subject: New Request # this is the subject for the email
+content:  |
+  THe client has requested something, [click here](${ interview_url() }) to review the document and repond to their request.
+---
+template: response_notification
+subject: response received 
+content:  |
+  your reviewer has provided an answer, [click here](${ interview_url() }) to view it. 
+---
+event: role_event
+question: Waiting on another user
+subquestion:  |
+  you are not authorized to look at the next screen of this interview.
+  
+  % if 'client' in role_needed: 
+  we are waiting for the client, and you are a reviewer.
+  % elif 'reviewer' in role_needed:
+  we are waiting for the reviewer, and you are the client. 
+  % endif
+  
+  please have the other party fo to [this link](${ interview_url() }) to continue. 
+buttons:
+  - Check: refresh
+---
+question:  Please enter your email address and the nature of the request. 
+fields:
+  - Email: email_address
+  - request: request
+---
+role: reviewer
+question: response # should only be viewed by reviewer
+subquestion:  |
+  the client said ${ request }. DO you approve?.
+yesno: reviewer_response
